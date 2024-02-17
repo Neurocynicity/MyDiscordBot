@@ -25,8 +25,8 @@ pathToEnvFile = str(Path(__file__).parent.resolve()) + FILE_PATH_SEPERATOR + "En
 load_dotenv(pathToEnvFile)
 
 TOKEN = os.getenv('TOKEN')
-BOT_ID = os.getenv('BOT_ID')
-MY_ID = os.getenv('MY_ID')
+BOT_ID = int(os.getenv('BOT_ID'))
+MY_ID = int(os.getenv('MY_ID'))
 
 # this is the ID of a guild (discord server) which I can safely test the bot in
 # this one will give every member access to every command and will be synced only to
@@ -272,10 +272,6 @@ messageCount = 5
 @client.event
 async def on_message(message : discord.Message):
 
-    # # boilerplate to disable unknown users using commands
-    # if IsCommandInvalid(message.author, message.guild.id, False):
-    #     return
-
     if message.author.id == BOT_ID:
         return
 
@@ -290,9 +286,9 @@ async def on_message(message : discord.Message):
 
                if previousMessage.author.id == BOT_ID:
                    await previousMessage.delete()
-                   return
+                   break
                
-    if "good bot" in message.content.lower():
+    if "good bot" in message.content.lower() or "🫳" == message.content:
         await message.add_reaction("😺")
 
     userTimeZone = GetUserTimeZone(message.author.id)
