@@ -288,7 +288,7 @@ async def on_message(message : discord.Message):
                    await previousMessage.delete()
                    break
                
-    if "good bot" in message.content.lower() or "🫳" == message.content:
+    if "good bot" in message.content.lower() or "🫳" in message.content:
         await message.add_reaction("😺")
 
     userTimeZone = GetUserTimeZone(message.author.id)
