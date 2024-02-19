@@ -27,7 +27,7 @@ possibleTimeFormats.append(TimeFormat("\d+:\d+\s*[apAP][mM]", "%H:%M", "t", "\d+
 possibleTimeFormats.append(TimeFormat("\d+:\d+", "%H:%M", "t"))
 possibleTimeFormats.append(TimeFormat("\d+\s*[apAP][mM]", "%H", "t", "\d+"))
 possibleTimeFormats.append(TimeFormat("\d+h\d+", "%Hh%M", "t", "\d+h\d+"))
-possibleTimeFormats.append(TimeFormat("\d+h", "%Hh", "t", "\d+h"))
+possibleTimeFormats.append(TimeFormat("\\b\d+h\\b", "%Hh", "t", "\\b\d+h\\b"))
 
 def ReplaceTimesInStringWithTimeStamps(inputString : str, userTimeZone):
 
@@ -127,5 +127,7 @@ def GetLocalTimeOfTimeString(timeString : str, timeFormat, userTimeZone):
 
     return timeObject
 
-# print(ReplaceTimesInStringWithTimeStamps("||14:00||", pytz.timezone("CET")))
+# print(ReplaceTimesInStringWithTimeStamps("0h", pytz.timezone("CET")))
+# print(ReplaceTimesInStringWithTimeStamps("https://twitter.com/SplatoonNA/status/1759582515189141879?t=GRf1Xbi7sBojrTn0hB3YRQ&s=19", pytz.timezone("CET")))
+
 # print(ReplaceTimesInStringWithTimeStamps("It's 12 pm and 12:00 midday and 12am 00:00 morning, 4:30 pm 4 am 4 pm 16:00 am 16:00 pm", pytz.timezone("CET")))
