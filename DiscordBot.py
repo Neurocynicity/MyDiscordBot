@@ -10,18 +10,19 @@ import TimeParser
 import DrawPromptGenerator
 from UserTimeZoneManager import SetUserTimeZone, GetUserTimeZone, GetAllUsersAndTimeZones
 from FriendCodeManager import SetFriendCodeOfUser, GetFriendCodeOfUser
+from Activities import MakeCreateActivityMesesage, DeleteActivityByVoiceChannel
+from GDPR import MakeGDPRMessage
+from Utility import DebugPrint
+
+# more imports below getting magic numbers
 
 DebugMode = Settings.GetIsDebugMode()
 SoundBoardActive = Settings.GetIsSoundboardActive()
-
-if SoundBoardActive:
-    import SoundBoard
-
-# loading magic numbers from a .env file
 FILE_PATH_SEPERATOR = Settings.GetFilePathSeperator()
 
-pathToEnvFile = str(Path(__file__).parent.resolve()) + FILE_PATH_SEPERATOR + "EnvironmentVariables.env"
+# loading magic numbers from a .env file
 
+pathToEnvFile = str(Path(__file__).parent.resolve()) + FILE_PATH_SEPERATOR + "EnvironmentVariables.env"
 load_dotenv(pathToEnvFile)
 
 TOKEN = os.getenv('TOKEN')
@@ -31,7 +32,10 @@ MY_ID = int(os.getenv('MY_ID'))
 # this is the ID of a guild (discord server) which I can safely test the bot in
 # this one will give every member access to every command and will be synced only to
 # this server and not others
-PRIVATE_GUILD_ID = os.getenv('PRIVATE_GUILD_ID')
+PRIVATE_GUILD_ID = int(os.getenv('PRIVATE_GUILD_ID'))
+
+if SoundBoardActive:
+    import SoundBoard
 
 intents = discord.Intents.default()
 intents.members = True
@@ -55,7 +59,7 @@ async def GetFriendCode(ctx, member : discord.Member):
    
     userFriendCode = GetFriendCodeOfUser(member.id)
     if userFriendCode is None:
-        await ctx.response.send_message(member.name + " has no friend code listed!!!")
+        await ctx.response.send_message(member.name + " has no friend code listed!")
     else:
         await ctx.response.send_message(member.name + "'s friend code is: " + userFriendCode)
 
@@ -67,27 +71,24 @@ async def GetFriendCode(ctx, member : discord.Member):
 async def SetTimeZone(ctx, timezonestring : str):
    
     if SetUserTimeZone(ctx.user.id, timezonestring):
-        await ctx.response.send_message("Set time zone to: " + str(GetUserTimeZone(ctx.user.id)))
+        await ctx.response.send_message("Set time zone to: " + str(GetUserTimeZone(ctx.user.id)), ephemeral=True)
     else:
-        await ctx.response.send_message("No time zone found!")
+        await ctx.response.send_message("Couldn't find time zone in: " + timezonestring, ephemeral=True)
 
 
 ## Admin set time zone command
 @tree.command(name = "settimezoneadmin", description = "Sets someone else's local time zone", )
-async def SetTimeZoneAdmin(ctx, member : discord.Member,  timezonestring : str):
+async def SetTimeZoneAdmin(ctx : discord.Interaction, member : discord.Member,  timezonestring : str):
 
     if ctx.user.id != MY_ID:
-        print(ctx.user + " Tried to use the admin command...")
-        return
-
-    # boilerplate to disable unknown users using commands
-    if IsCommandInvalidInteraction(ctx):
+        print(ctx.user.name + " Tried to use the admin command...")
+        await ctx.response.send_message('You must be the owner to use this command!\nPlease use /settimezone instead', ephemeral=True)
         return
    
     if SetUserTimeZone(member.id, timezonestring):
-        await ctx.response.send_message("Set " + member.name + "'s time zone to: " + str(GetUserTimeZone(member.id)))
+        await ctx.response.send_message("Set " + member.name + "'s time zone to: " + str(GetUserTimeZone(member.id)), ephemeral=True)
     else:
-        await ctx.response.send_message("No time zone found!")
+        await ctx.response.send_message("Couldn't find time zone in: " + timezonestring, ephemeral=True)
 
 #endregion
 
@@ -165,11 +166,9 @@ async def ConvertToAllLocalTimes(ctx : discord.Interaction, timestr : str, membe
         channel.flags.value
         isThread = True
 
-        if DebugMode:
-            print("THREAD FOUND!!!")
+        DebugPrint("THREAD FOUND!!!")
     except:
-        if DebugMode:
-            print("Not in thread")
+        DebugPrint("Not in thread")
         
 
     if isThread:
@@ -200,8 +199,7 @@ async def ConvertToAllLocalTimes(ctx : discord.Interaction, timestr : str, membe
         
         UTCOffsetsAndPeople[utcOffset].append(userIDstr)
 
-    if DebugMode:
-        print(UTCOffsetsAndPeople)       
+    DebugPrint(UTCOffsetsAndPeople)       
 
     responseStr = matchInMessage[0] + " for " + userMember.name + " is:"
 
@@ -258,15 +256,33 @@ async def on_reaction_add(reaction : discord.Reaction, user):
     
     # ignore reactions to any messages done by others
     if reaction.message.author.id != BOT_ID or user.id == BOT_ID:
-        if DebugMode:
-            print("Ignoring reaction")
+        DebugPrint("Ignoring reaction")
         return
     
     await SoundBoard.TryPlaySound(reaction, user)
 
 #endregion
 
-#region Message Time Replacement
+#region VC and Activity creation
+
+@tree.command(name = "createactivitychannel", description = "Sends the message so this channel can be used for activities", )
+async def CreateAnActivityChannel(ctx : discord.Interaction):
+
+    if IsCommandInvalidInteraction(ctx):
+        print(ctx.user.name + " doesn't have access to using /createactivitychannel")
+        await ctx.response.send_message('You must be an admin to use this command!', ephemeral=True)
+        return
+    
+    return await MakeCreateActivityMesesage(ctx)
+
+@client.event
+async def on_voice_state_update(member, before : discord.VoiceState, after : discord.VoiceState):
+    if before.channel != None and len(before.channel.members) == 0 and after.channel != before.channel:
+        await DeleteActivityByVoiceChannel(before.channel)
+    
+#endregion
+
+#region On Message event
 messageCount = 5
 
 @client.event
@@ -298,29 +314,42 @@ async def on_message(message : discord.Message):
 
     response = TimeParser.ReplaceTimesInStringWithTimeStamps(message.content, userTimeZone)
 
-    if DebugMode:
-        print("There's a message: \"" + message.content + "\"\nResponse \"" + response + '"')
+    DebugPrint("There's a message: \"" + message.content + "\"\nResponse \"" + response + '"')
 
     if response != message.content:
         await message.channel.send(response)
 
 #endregion
 
+#region Syncing
+
 @tree.command(name='sync', description='Owner only (command for nerds)')
 async def sync(interaction: discord.Interaction):
     if interaction.user.id == MY_ID:
         await tree.sync(guild=discord.Object(id=PRIVATE_GUILD_ID))
-        print('Command tree synced.')
+        print('Command tree synced in private server.')
     else:
-        await interaction.response.send_message('You must be the owner to use this command!')
+        await interaction.response.send_message('You must be the owner to use this command!', ephemeral=True)
 
 @tree.command(name='syncglobal', description='Owner only (command for nerds)')
-async def sync(interaction: discord.Interaction):
+async def syncglobal(interaction: discord.Interaction):
     if interaction.user.id == MY_ID:
         await tree.sync()
         print('Command tree synced.')
     else:
-        await interaction.response.send_message('You must be the owner to use this command!')
+        await interaction.response.send_message('You must be the owner to use this command!', ephemeral=True)
+
+#endregion
+
+#region GDPR
+
+@tree.command(name='gdpr', description='See all information the bot has about you, and gives the option to delete it all')
+async def gdpr(interaction: discord.Interaction):
+    return await MakeGDPRMessage(interaction)
+
+#endregion
+
+#region command validating
 
 # @tree.command(name = "test", description = "Jester uses this to test", )
 # async def Test(ctx):
@@ -347,14 +376,16 @@ def IsCommandInvalid(user, guild_id, debugIfInvalid=True):
 
     return False
 
+#endregion
+
 @client.event
 async def on_ready():
     print("Getting ready...")
 
     if SoundBoardActive:
         SoundBoard.SetupSoundboard(client)
+        print("Soundboard set up!")
     
-    print("Soundboard set up!")
     print("Ready!")
 
 print("Running client...")

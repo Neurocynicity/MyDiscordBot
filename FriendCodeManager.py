@@ -17,4 +17,13 @@ def GetFriendCodeOfUser(user_id : int):
     if str(user_id) in currentData.keys():
         return currentData[str(user_id)]
     
-    return None    
+    return None
+
+def RemoveUserFriendCode(user_id : int):
+    
+    if str(user_id) in currentData.keys():
+        del currentData[str(user_id)]
+        dataAccessor.SetData(currentData)
+        return True
+    
+    return False

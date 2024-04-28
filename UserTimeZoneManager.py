@@ -11,6 +11,9 @@ pathToFile = str(pathlib.Path(__file__).parent.resolve()) + FILE_PATH_SEPERATOR 
 
 timeZoneDictionary = {}
 
+sortedCommonTimezones = sorted(common_timezones, key=lambda x: len(x))
+sortedAllTimezones = sorted(all_timezones, key=lambda x: len(x))
+
 # helper functions for this module
 
 def FillTimeZoneDictionary():
@@ -25,15 +28,20 @@ def SaveDictionaryToFile():
         textFile.write(json.dumps(timeZoneDictionary))
 
 def GetTimeZoneFromString(timeZoneStr : str):
+
+    timeZoneStr = timeZoneStr.lower()
     
-    if timeZoneStr in country_timezones:
+    if timeZoneStr.upper() in country_timezones:
         return timezone(country_timezones(timeZoneStr)[0])
     
-    if timeZoneStr in common_timezones or timeZoneStr in all_timezones:
-        return timezone(timeZoneStr)
+    for timeZone in sortedCommonTimezones:
+        if timeZoneStr in timeZone.lower():
+            return timezone(timeZone)
     
-    for timeZone in common_timezones:
-        if timeZoneStr in timeZone:
+    # list comprehension to check in just all the timezones
+    # not in the common_timezones list
+    for timeZone in [i for i in sortedAllTimezones if i not in common_timezones]:
+        if timeZoneStr in timeZone.lower():
             return timezone(timeZone)
 
     return
@@ -71,3 +79,16 @@ def GetUserTimeZone(id : int):
 
 def GetAllUsersAndTimeZones():
     return timeZoneDictionary
+
+def RemoveUsersTimeZone(user_id : int):
+    
+    FillTimeZoneDictionary()
+
+    if str(user_id) in timeZoneDictionary:
+        del timeZoneDictionary[str(user_id)]
+        SaveDictionaryToFile()
+        return True
+    
+    return False
+
+# print(str(GetTimeZoneFromString("CAT")))
